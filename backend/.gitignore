@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Secrets and Environment Variables
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Database & SQLite files
+*.db
+*.db-journal
+*.db.bak
+*.bak
+*.sqlite
+*.sqlite3
+
+# Test & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

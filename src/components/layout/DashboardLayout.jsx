@@ -1,12 +1,30 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 
 export const DashboardLayout = () => {
+  const { isAuthenticated, isVerifying } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const location = useLocation();
+
+  if (isVerifying) {
+    return (
+      <div className="min-h-screen bg-[#05070E] text-slate-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#00FF66] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-mono text-slate-400">Authenticating AlgoBoostX session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#05070E] text-slate-100 flex relative overflow-x-hidden">

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algo Boost X — Algorithmic Trading Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            dark: {
+              900: '#090d16',
+              800: '#111827',
+              700: '#1f2937',
+              600: '#374151',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#090d16] text-gray-200 font-sans antialiased min-h-screen">
+
+  <!-- TOP NAVIGATION BAR -->
+  <nav class="border-b border-gray-800 bg-[#0d1322] px-6 py-3.5 sticky top-0 z-50 flex flex-wrap items-center justify-between shadow-lg">
+    <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center font-bold text-white shadow-md text-xs tracking-wider">
+          ABX
+        </div>
+        <div>
+          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-300 bg-clip-text text-transparent">Algo Boost X</span>
+          <span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded bg-indigo-950 text-indigo-300 border border-indigo-800">Delta Testnet Edition</span>
+        </div>
+      </div>
+      <div class="hidden md:flex items-center space-x-3 text-xs text-gray-400 border-l border-gray-700 pl-4">
+        <span>Instrument: <strong id="nav-instrument" class="text-white font-mono">BTCUSD</strong></span>
+        <span>•</span>
+        <span>Timeframe: <strong id="nav-timeframe" class="text-white font-mono">5m</strong></span>
+        <span>•</span>
+        <span>Strategy: <strong class="text-white font-mono">EMA 9 / 21</strong></span>
+        <span>•</span>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800">TESTNET ONLY</span>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+      <!-- Exchange & Account Status Badge -->
+      <div id="exchange-badge" class="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700">
+        <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+        <span id="exchange-status-text">Checking exchange...</span>
+      </div>
+
+      <!-- Settings Navigation Button -->
+      <button onclick="switchTab('settings')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-indigo-300 border border-indigo-800/60 transition flex items-center space-x-1.5 shadow">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>API Settings</span>
+      </button>
+
+      <!-- Strategy Start/Stop Controls -->
+      <button id="btn-toggle-strategy" onclick="toggleStrategy()" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center space-x-1.5 shadow">
+        <svg id="icon-start" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+        <span id="btn-strategy-text">Start Strategy</span>
+      </button>
+
+      <!-- Emergency Stop Button -->
+      <button id="btn-emergency-stop" onclick="triggerEmergencyStop()" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition flex items-center space-x-1.5 shadow">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+        <span>EMERGENCY STOP</span>
+      </button>
+
+      <!-- Emergency Reset (Hidden by default) -->
+      <button id="btn-emergency-reset" onclick="resetEmergencyStop()" class="hidden px-4 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white transition">
+        Reset Safety Switch
+      </button>
+    </div>
+  </nav>
+
+  <!-- EMERGENCY STOP BANNER (Active when triggered) -->
+  <div id="emergency-banner" class="hidden bg-red-950 border-b border-red-800 px-6 py-2.5 text-center text-sm font-semibold text-red-200 flex items-center justify-center space-x-2">
+    <svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <span id="emergency-banner-msg">CRITICAL: Emergency Stop is ACTIVE. All automated order execution is blocked!</span>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- TOP KPI STATS CARDS -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <!-- Price & Market Status Card -->
+      <div class="bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-sm hover:border-gray-700 transition">
+        <div class="flex items-center justify-between text-xs text-gray-400 font-medium">
+          <span>BTCUSD MARK PRICE</span>
+          <span id="candle-badge" class="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800">FRESH</span>
+        </div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-price" class="text-2xl font-bold font-mono text-white">$65,000.00</span>
+        </div>
+        <div class="mt-2 text-xs flex justify-between text-gray-400 font-mono">
+          <span>EMA9: <span id="metric-fast-ema" class="text-indigo-400 font-semibold">$0.00</span></span>
+          <span>EMA21: <span id="metric-slow-ema" class="text-purple-400 font-semibold">$0.00</span></span>
+        </div>
+      </div>
+
+      <!-- Testnet Balance Card -->
+      <div class="bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-sm hover:border-gray-700 transition">
+        <div class="text-xs text-gray-400 font-medium">ACTIVE ACCOUNT WALLET</div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-balance" class="text-2xl font-bold font-mono text-white">$10,000.00</span>
+          <span class="text-xs text-gray-400">USDT</span>
+        </div>
+        <div class="mt-2 text-xs text-gray-400 flex justify-between font-mono">
+          <span>Available: <span id="metric-available" class="text-emerald-400 font-semibold">$10,000.00</span></span>
+        </div>
+      </div>
+
+      <!-- Realized P&L Card -->
+      <div class="bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-sm hover:border-gray-700 transition">
+        <div class="text-xs text-gray-400 font-medium">DAILY REALIZED P&L</div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-realized-pnl" class="text-2xl font-bold font-mono text-white">$0.00</span>
+        </div>
+        <div class="mt-2 text-xs text-gray-400 flex justify-between font-mono">
+          <span>Net after fees: <span id="metric-net-pnl" class="text-gray-300">$0.00</span></span>
+        </div>
+      </div>
+
+      <!-- Win Rate & Trades Card -->
+      <div class="bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-sm hover:border-gray-700 transition">
+        <div class="text-xs text-gray-400 font-medium">WIN RATE & EXECUTIONS</div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-win-rate" class="text-2xl font-bold font-mono text-indigo-400">0.0%</span>
+          <span id="metric-trade-ratio" class="text-xs text-gray-400">(0W / 0L)</span>
+        </div>
+        <div class="mt-2 text-xs text-gray-400 flex justify-between font-mono">
+          <span>Signals: <span id="metric-signals-count" class="text-white">0</span></span>
+          <span>Orders: <span id="metric-orders-count" class="text-white">0</span></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAIN CHART & RISK ENGINE STATUS ROW -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Interactive Price & EMA Chart (2 Cols) -->
+      <div class="lg:col-span-2 bg-[#111827] border border-gray-800 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <h2 class="text-sm font-semibold text-white tracking-wide uppercase">Market Price & Indicator Stream</h2>
+            <span class="text-xs text-gray-400 font-mono">BTCUSD (5m)</span>
+          </div>
+          <div class="flex items-center space-x-3 text-xs font-mono">
+            <span class="flex items-center space-x-1"><span class="w-3 h-0.5 bg-indigo-500 inline-block"></span><span class="text-gray-300">Fast EMA (9)</span></span>
+            <span class="flex items-center space-x-1"><span class="w-3 h-0.5 bg-purple-500 inline-block"></span><span class="text-gray-300">Slow EMA (21)</span></span>
+          </div>
+        </div>
+        <div class="h-64 sm:h-72 w-full">
+          <canvas id="marketChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Risk Engine Live Status & Controls (1 Col) -->
+      <div class="bg-[#111827] border border-gray-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-white tracking-wide uppercase">Risk Management Engine</h2>
+            <span id="risk-status-pill" class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-950 text-emerald-300 border border-emerald-800">ALL PASS</span>
+          </div>
+
+          <div class="space-y-3.5 text-xs">
+            <!-- Position Exposure Bar -->
+            <div>
+              <div class="flex justify-between text-gray-300 mb-1">
+                <span>Total Exposure</span>
+                <span id="risk-exp-text" class="font-mono text-white">0.00 / 0.20 BTC</span>
+              </div>
+              <div class="w-full bg-gray-800 rounded-full h-2">
+                <div id="risk-exp-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Open Orders Limit -->
+            <div class="flex justify-between py-1 border-b border-gray-800">
+              <span class="text-gray-400">Open Orders Limit</span>
+              <span id="risk-open-orders" class="font-mono text-white">0 / 3</span>
+            </div>
+
+            <!-- Max Order Quantity -->
+            <div class="flex justify-between py-1 border-b border-gray-800">
+              <span class="text-gray-400">Max Order Quantity</span>
+              <span id="risk-max-qty" class="font-mono text-white">0.05 BTC</span>
+            </div>
+
+            <!-- Daily Loss Limit -->
+            <div class="flex justify-between py-1 border-b border-gray-800">
+              <span class="text-gray-400">Daily Loss Limit</span>
+              <span id="risk-daily-limit" class="font-mono text-white">$500.00</span>
+            </div>
+
+            <!-- Stop-Loss / Take-Profit -->
+            <div class="flex justify-between py-1 border-b border-gray-800">
+              <span class="text-gray-400">Exit Thresholds</span>
+              <span class="font-mono text-white">SL: -2.0% | TP: +4.0%</span>
+            </div>
+
+            <!-- Duplicate Position Guard -->
+            <div class="flex justify-between py-1">
+              <span class="text-gray-400">Position Policy</span>
+              <span class="font-semibold text-emerald-400 font-mono">LONG-ONLY</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
+          <span>Rejections logged: <strong id="risk-rejections-count" class="text-amber-400">0</strong></span>
+          <span>Approved orders: <strong id="risk-approved-count" class="text-emerald-400">0</strong></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABBED DATA WORKFLOW PANELS -->
+    <div class="bg-[#111827] border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+      <!-- Tabs Navigation -->
+      <div class="flex border-b border-gray-800 bg-[#0d1322] px-4 space-x-4 overflow-x-auto text-xs font-medium">
+        <button onclick="switchTab('positions')" id="tab-btn-positions" class="tab-btn py-3 px-2 border-b-2 border-indigo-500 text-indigo-400">
+          Open Positions (<span id="count-positions">0</span>)
+        </button>
+        <button onclick="switchTab('orders')" id="tab-btn-orders" class="tab-btn py-3 px-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200">
+          Order Lifecycle (<span id="count-orders">0</span>)
+        </button>
+        <button onclick="switchTab('signals')" id="tab-btn-signals" class="tab-btn py-3 px-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200">
+          Strategy Signals (<span id="count-signals">0</span>)
+        </button>
+        <button onclick="switchTab('trades')" id="tab-btn-trades" class="tab-btn py-3 px-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200">
+          Trade History (<span id="count-trades">0</span>)
+        </button>
+        <button onclick="switchTab('events')" id="tab-btn-events" class="tab-btn py-3 px-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200">
+          System Audit Events (<span id="count-events">0</span>)
+        </button>
+        <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn py-3 px-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 flex items-center space-x-1">
+          <span>⚙️ API Connections & Accounts (<span id="count-accounts">0</span>)</span>
+        </button>
+      </div>
+
+      <!-- Tab Content: POSITIONS -->
+      <div id="tab-content-positions" class="p-4 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="text-gray-400 uppercase border-b border-gray-800 font-mono">
+            <tr>
+              <th class="py-2.5 px-3">Instrument</th>
+              <th class="py-2.5 px-3">Side / Size</th>
+              <th class="py-2.5 px-3">Entry Price</th>
+              <th class="py-2.5 px-3">Mark Price</th>
+              <th class="py-2.5 px-3">Unrealized P&L</th>
+              <th class="py-2.5 px-3">Stop-Loss Target</th>
+              <th class="py-2.5 px-3">Last Reconciled</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-positions" class="divide-y divide-gray-800 font-mono">
+            <tr><td colspan="7" class="py-6 text-center text-gray-500">No active positions open</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Content: ORDERS -->
+      <div id="tab-content-orders" class="hidden p-4 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="text-gray-400 uppercase border-b border-gray-800 font-mono">
+            <tr>
+              <th class="py-2.5 px-3">Internal Order ID</th>
+              <th class="py-2.5 px-3">Exchange ID</th>
+              <th class="py-2.5 px-3">Side</th>
+              <th class="py-2.5 px-3">Quantity</th>
+              <th class="py-2.5 px-3">Price</th>
+              <th class="py-2.5 px-3">Status</th>
+              <th class="py-2.5 px-3">Updated At</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-orders" class="divide-y divide-gray-800 font-mono">
+            <tr><td colspan="7" class="py-6 text-center text-gray-500">No orders recorded yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Content: SIGNALS -->
+      <div id="tab-content-signals" class="hidden p-4 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="text-gray-400 uppercase border-b border-gray-800 font-mono">
+            <tr>
+              <th class="py-2.5 px-3">Timestamp</th>
+              <th class="py-2.5 px-3">Instrument</th>
+              <th class="py-2.5 px-3">Signal</th>
+              <th class="py-2.5 px-3">Fast EMA (9)</th>
+              <th class="py-2.5 px-3">Slow EMA (21)</th>
+              <th class="py-2.5 px-3">Close Price</th>
+              <th class="py-2.5 px-3">Risk Decision</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-signals" class="divide-y divide-gray-800 font-mono">
+            <tr><td colspan="7" class="py-6 text-center text-gray-500">No strategy signals generated yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Content: TRADES -->
+      <div id="tab-content-trades" class="hidden p-4 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="text-gray-400 uppercase border-b border-gray-800 font-mono">
+            <tr>
+              <th class="py-2.5 px-3">Trade ID</th>
+              <th class="py-2.5 px-3">Associated Order</th>
+              <th class="py-2.5 px-3">Side</th>
+              <th class="py-2.5 px-3">Fill Price</th>
+              <th class="py-2.5 px-3">Fill Qty</th>
+              <th class="py-2.5 px-3">Fees</th>
+              <th class="py-2.5 px-3">Realized P&L</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-trades" class="divide-y divide-gray-800 font-mono">
+            <tr><td colspan="7" class="py-6 text-center text-gray-500">No completed trades recorded yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Content: EVENTS -->
+      <div id="tab-content-events" class="hidden p-4 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="text-gray-400 uppercase border-b border-gray-800 font-mono">
+            <tr>
+              <th class="py-2.5 px-3">Timestamp</th>
+              <th class="py-2.5 px-3">Category</th>
+              <th class="py-2.5 px-3">Severity</th>
+              <th class="py-2.5 px-3">Message</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-events" class="divide-y divide-gray-800 font-mono">
+            <tr><td colspan="4" class="py-6 text-center text-gray-500">No audit events logged yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Content: SETTINGS & DELTA API CONNECTION -->
+      <div id="tab-content-settings" class="hidden p-6 space-y-6">
+
+        <!-- Environment Header Callout -->
+        <div class="bg-indigo-950/40 border border-indigo-800/80 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider">Delta Exchange Environment: Testnet</h3>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800">MAINNET DISABLED BY POLICY</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">
+              Connect your own Delta Exchange Testnet API key to execute automated trades. All credentials are AES encrypted at rest and never transmitted to the browser or stored in plaintext.
+            </p>
+          </div>
+          <div class="text-xs font-mono text-gray-400 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-800">
+            Active Account: <strong id="active-acc-display" class="text-indigo-300">Sandbox / Default</strong>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Connected Accounts List -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">Connected Accounts & Multi-User Isolation</h4>
+              <button onclick="refreshAccountsList()" class="text-xs text-indigo-400 hover:text-indigo-300">Refresh</button>
+            </div>
+
+            <div id="accounts-list-container" class="space-y-3">
+              <div class="text-center py-6 text-xs text-gray-500">Loading connected accounts...</div>
+            </div>
+          </div>
+
+          <!-- Add Account Form -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+            <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">Connect New Delta Testnet Account</h4>
+
+            <!-- IP Whitelisting Callout -->
+            <div class="bg-amber-950/30 border border-amber-800/60 rounded-lg p-3 text-xs text-amber-200/90 space-y-1">
+              <div class="font-semibold flex items-center space-x-1">
+                <span>⚠️ IP Whitelisting Requirement</span>
+              </div>
+              <p class="text-[11px] text-gray-300 leading-relaxed">
+                IP whitelisting must be configured directly within the official Delta Exchange portal when creating your API keys. Algo Boost X validates credentials via HMAC-SHA256 signatures but does not configure exchange firewalls.
+              </p>
+            </div>
+
+            <form id="connect-account-form" onsubmit="handleAccountConnect(event)" class="space-y-3 text-xs">
+              <div>
+                <label class="block text-gray-400 mb-1">Account Label</label>
+                <input id="input-acc-label" type="text" placeholder="e.g. My Testnet Bot" required class="w-full bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-sans">
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-gray-400 mb-1">User ID (Account Isolation)</label>
+                  <input id="input-user-id" type="text" value="default_user" required class="w-full bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono">
+                </div>
+                <div>
+                  <label class="block text-gray-400 mb-1">Exchange Base URL</label>
+                  <select id="input-base-url" class="w-full bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-[11px]">
+                    <option value="https://cdn-ind.testnet.deltaex.org">https://cdn-ind.testnet.deltaex.org (India Testnet)</option>
+                    <option value="https://testnet-api.delta.exchange">https://testnet-api.delta.exchange (Global Testnet)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-gray-400 mb-1">Delta API Key</label>
+                <input id="input-api-key" type="text" placeholder="Enter testnet API Key" required class="w-full bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono">
+              </div>
+
+              <div>
+                <label class="block text-gray-400 mb-1">Delta API Secret</label>
+                <input id="input-api-secret" type="password" placeholder="Enter testnet API Secret" required class="w-full bg-[#111827] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono">
+              </div>
+
+              <div id="connect-alert" class="hidden rounded-lg p-2.5 text-xs"></div>
+
+              <div class="flex items-center space-x-3 pt-2">
+                <button type="button" onclick="handleValidateCredentialsOnly()" class="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition font-semibold">
+                  Test Credentials
+                </button>
+                <button type="submit" id="btn-save-acc" class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition font-semibold shadow">
+                  Save & Connect Account
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- Strategy Plugins & Algorithmic Strategy Registry -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wide">Algorithmic Strategy Plugins</h4>
+              <p class="text-[11px] text-gray-400 mt-0.5">Plug-and-play strategies with parameter configuration, toggle controls, and historical backtesting.</p>
+            </div>
+            <button onclick="refreshStrategiesList()" class="text-xs text-indigo-400 hover:text-indigo-300">Refresh Strategies</button>
+          </div>
+
+          <div id="strategies-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="text-center py-6 text-xs text-gray-500">Loading strategy plugins...</div>
+          </div>
+
+          <!-- Backtest Results Display -->
+          <div id="backtest-results-panel" class="hidden bg-[#0d1322] border border-gray-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+              <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider" id="backtest-strat-title">Backtest Results</span>
+              <button onclick="document.getElementById('backtest-results-panel').classList.add('hidden')" class="text-gray-400 hover:text-white text-xs">✕ Close</button>
+            </div>
+            <div id="backtest-metrics-container" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <!-- populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="mt-8 border-t border-gray-800 py-4 text-center text-xs text-gray-500 font-mono">
+    Algo Boost X Algorithmic Trading System • Delta Exchange Testnet Edition • Autonomous Architecture
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

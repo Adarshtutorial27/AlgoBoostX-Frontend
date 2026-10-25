@@ -1,313 +1,525 @@
 import React, { useState } from 'react';
 import {
-  Sliders,
   User,
-  Shield,
   Bell,
-  Server,
+  Link2,
+  Bot,
   Key,
+  Lock,
+  Trash2,
+  ShieldAlert,
   CheckCircle2,
   AlertTriangle,
-  RefreshCw,
+  Copy,
   ExternalLink,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Server,
+  Zap,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../context/NotificationContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import Modal from '../components/common/Modal';
 import { DemoBadge } from '../components/common/DemoBadge';
+import { useAuth } from '../context/AuthContext';
+import { useTrading } from '../context/TradingContext';
+import { useNotifications } from '../context/NotificationContext';
+import BrokerConnectModal from '../components/common/BrokerConnectModal';
 
 export const SettingsPage = () => {
   const { user, backendStatus, checkBackendNow } = useAuth();
+  const { connectedBrokers, brokers } = useTrading();
   const { addToast } = useNotifications();
 
-  // Profile Form State
+  // Active settings tab
+  const [activeTab, setActiveTab] = useState('profile');
+
+  // Profile fields
   const [name, setName] = useState(user?.name || 'Alex Rivera');
   const [email, setEmail] = useState(user?.email || 'quant.alex@algoboostx.ai');
+  const [bio, setBio] = useState('Quantitative trader focusing on mean reversion and momentum AI models.');
 
-  // Notifications State
-  const [emailAlerts, setEmailAlerts] = useState(true);
+  // Notification toggles
   const [orderFills, setOrderFills] = useState(true);
-  const [circuitBreakerAlerts, setCircuitBreakerAlerts] = useState(true);
+  const [strategyAlerts, setStrategyAlerts] = useState(true);
+  const [riskBreakers, setRiskBreakers] = useState(true);
+  const [webhookPings, setWebhookPings] = useState(false);
 
-  // Security / 2FA State
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+  // Trading View Bot Webhook
+  const [webhookUrl] = useState('https://api.algoboostx.ai/v1/webhooks/tv_bot_981a');
+  const [webhookSecret] = useState('sec_tv_live_449198aa2b');
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
-  // Exchange API Simulated Key State
-  const [exchangeApiKey, setExchangeApiKey] = useState('binance_demo_key_9941a8');
-  const [exchangeSecretMasked] = useState('••••••••••••••••••••••••••••••••');
-  const [isTestingBackend, setIsTestingBackend] = useState(false);
+  // Password reset fields
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+
+  // Delete account confirmation modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Broker connect modal
+  const [brokerModalOpen, setBrokerModalOpen] = useState(false);
+
+  const navItems = [
+    { id: 'profile', label: 'Profile Settings', icon: User },
+    { id: 'notifications', label: 'Notification Settings', icon: Bell },
+    { id: 'tradingAccount', label: 'Trading Account', icon: Link2 },
+    { id: 'tradingViewBot', label: 'Trading View Bot', icon: Bot, badge: 'WEBHOOK' },
+    { id: 'api', label: 'API', icon: Key },
+    { id: 'passwordReset', label: 'Password Reset', icon: Lock },
+    { id: 'deleteAccount', label: 'Delete Account', icon: Trash2, isDanger: true },
+  ];
+
+  const handleCopyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+    addToast({
+      title: 'Webhook URL Copied',
+      message: 'Paste this URL into your TradingView alert webhook settings.',
+      type: 'info',
+    });
+  };
 
   const handleSaveProfile = (e) => {
     e.preventDefault();
     addToast({
       title: 'Profile Updated',
-      message: 'Your profile settings were successfully updated.',
+      message: 'Your profile changes have been saved.',
       type: 'success',
     });
   };
 
-  const handlePingBackend = async () => {
-    setIsTestingBackend(true);
-    const res = await checkBackendNow();
-    setIsTestingBackend(false);
-    if (res.connected) {
+  const handleResetPassword = (e) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword) {
       addToast({
-        title: 'Backend API Connected',
-        message: `Successfully connected to ${res.url}`,
-        type: 'success',
+        title: 'Validation Error',
+        message: 'Please fill in all password fields.',
+        type: 'error',
       });
-    } else {
-      addToast({
-        title: 'Backend Offline / In Progress',
-        message: `Could not reach ${res.url}. Operating in local demo simulation mode.`,
-        type: 'warning',
-      });
+      return;
     }
+    if (newPassword !== confirmPassword) {
+      addToast({
+        title: 'Passwords Do Not Match',
+        message: 'New password and confirmation must match.',
+        type: 'error',
+      });
+      return;
+    }
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    addToast({
+      title: 'Password Updated',
+      message: 'Simulated password reset completed.',
+      type: 'success',
+    });
+  };
+
+  const handleDeleteAccount = () => {
+    setDeleteModalOpen(false);
+    setDeleteConfirmText('');
+    addToast({
+      title: 'Simulated Destructive Action',
+      message: 'Account deletion is a frontend demonstration. No live records were permanently removed.',
+      type: 'warning',
+    });
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#090e1c] border border-white/[0.08]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-[#080c14] border border-white/[0.08]">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-heading font-extrabold text-white tracking-wide">
-              Platform & Integration Settings
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-heading font-extrabold text-white tracking-tight">
+              Account & Integration Settings
             </h1>
             <DemoBadge size="sm" />
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Manage your trader profile, backend endpoint connectivity, notifications, and simulated API keys.
+          <p className="text-sm text-slate-400 mt-1">
+            Manage credentials, broker API keys, TradingView bots, and security preferences.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Profile & Security */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Profile Card */}
-          <Card
-            title="Quantitative Trader Profile"
-            subtitle="Account credentials and display handle"
-            headerBadge={<DemoBadge size="xs" />}
-          >
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Main Settings Layout: Left Sidebar + Right Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Sub-Sidebar */}
+        <div className="lg:col-span-4 rounded-3xl bg-[#090d16] border border-white/[0.08] p-3 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-medium transition-all ${
+                  isActive
+                    ? item.isDanger
+                      ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold'
+                      : 'bg-[#00FF66]/15 text-[#00FF66] border border-[#00FF66]/30 font-semibold shadow-md shadow-[#00FF66]/10'
+                    : item.isDanger
+                    ? 'text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/10'
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right Settings Panel */}
+        <div className="lg:col-span-8">
+          {/* TAB 1: PROFILE SETTINGS */}
+          {activeTab === 'profile' && (
+            <Card title="Profile Settings" subtitle="Personal details and quant profile" headerBadge={<DemoBadge size="xs" />}>
+              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs font-mono">
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1.5">Display Name</label>
+                  <label className="block text-slate-300 mb-1.5 font-sans">Full Name / Quant Handle</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-cyan-500/50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.08] text-white text-xs focus:outline-none focus:border-[#00FF66]/50"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1.5">Registered Email</label>
+                  <label className="block text-slate-300 mb-1.5 font-sans">Email Address</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-cyan-500/50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.08] text-white text-xs focus:outline-none focus:border-[#00FF66]/50"
                   />
                 </div>
-              </div>
 
-              <div className="flex justify-end pt-2">
-                <Button type="submit" variant="primary" size="sm">
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </Card>
-
-          {/* Backend Connection Diagnostics */}
-          <Card
-            title="Backend Integration Status"
-            subtitle="API endpoint handshake surveillance"
-            headerBadge={
-              <Badge variant={backendStatus.connected ? 'green' : 'amber'} size="xs" dot>
-                {backendStatus.connected ? 'BACKEND ONLINE' : 'SIMULATION MODE'}
-              </Badge>
-            }
-          >
-            <div className="space-y-4 text-xs font-mono">
-              <div className="p-4 rounded-xl bg-slate-900/60 border border-white/[0.06] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Endpoint URL (VITE_API_BASE_URL):</span>
-                  <span className="text-cyan-300 font-bold">{backendStatus.url || 'http://localhost:5000/api'}</span>
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-sans">Bio / Strategy Focus</label>
+                  <textarea
+                    rows={3}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-white/[0.08] text-white text-xs focus:outline-none focus:border-[#00FF66]/50 resize-none font-sans"
+                  />
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Status Response:</span>
-                  <span
-                    className={`font-bold ${
-                      backendStatus.connected ? 'text-emerald-400' : 'text-amber-400'
-                    }`}
+
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" variant="primary" size="sm">
+                    Save Profile Settings
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          {/* TAB 2: NOTIFICATION SETTINGS */}
+          {activeTab === 'notifications' && (
+            <Card title="Notification Settings" subtitle="Real-time alert delivery preferences" headerBadge={<DemoBadge size="xs" />}>
+              <div className="space-y-3 text-xs">
+                <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-white/[0.05] cursor-pointer">
+                  <div>
+                    <div className="font-semibold text-white">Order Fill Notifications</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Alert immediately upon simulated limit/market execution</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={orderFills}
+                    onChange={(e) => setOrderFills(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#00FF66] focus:ring-[#00FF66]"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-white/[0.05] cursor-pointer">
+                  <div>
+                    <div className="font-semibold text-white">AI Strategy Execution Alerts</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Notify when algorithms enter or exit positions</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={strategyAlerts}
+                    onChange={(e) => setStrategyAlerts(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#00FF66] focus:ring-[#00FF66]"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-white/[0.05] cursor-pointer">
+                  <div>
+                    <div className="font-semibold text-white">Emergency Risk Circuit Breakers</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">High-priority notices for max drawdown and volatility spikes</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={riskBreakers}
+                    onChange={(e) => setRiskBreakers(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#00FF66] focus:ring-[#00FF66]"
+                  />
+                </label>
+              </div>
+            </Card>
+          )}
+
+          {/* TAB 3: TRADING ACCOUNT */}
+          {activeTab === 'tradingAccount' && (
+            <Card title="Trading Account" subtitle="Linked brokers and account configuration" headerBadge={<DemoBadge size="xs" />}>
+              <div className="space-y-4 text-xs font-mono">
+                <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.05] space-y-3">
+                  <div className="flex items-center justify-between font-sans">
+                    <span className="font-semibold text-white">Connected Accounts:</span>
+                    <span className="text-[#00FF66] font-mono font-bold">
+                      {connectedBrokers.length} Linked Broker(s)
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {connectedBrokers.map((id) => {
+                      const broker = brokers.find((b) => b.id === id);
+                      return (
+                        <div key={id} className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                          <span className="font-bold text-white">{broker?.name || id}</span>
+                          <Badge variant="green" size="xs" dot>
+                            DMA Active
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setBrokerModalOpen(true)}
+                    leftIcon={<Link2 className="w-4 h-4" />}
                   >
-                    {backendStatus.connected
-                      ? 'HTTP 200 OK — Ready for Live Pipeline'
-                      : 'OFFLINE / NOT YET DEPLOYED (Graceful Fallback)'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">WebSocket URL (VITE_WS_URL):</span>
-                  <span className="text-slate-300">ws://localhost:5000/ws</span>
+                    Connect Additional Account
+                  </Button>
                 </div>
               </div>
+            </Card>
+          )}
 
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
-                  The frontend is designed to consume the centralized backend API service. When your backend partner launches the server on port 5000, test the ping here.
+          {/* TAB 4: TRADING VIEW BOT */}
+          {activeTab === 'tradingViewBot' && (
+            <Card title="Trading View Bot" subtitle="Webhook alert automation bridge" headerBadge={<DemoBadge size="xs" />}>
+              <div className="space-y-4 text-xs font-mono">
+                <p className="text-slate-400 leading-relaxed font-sans">
+                  Connect your custom PineScript alerts directly to Algo boostX execution pipeline using incoming webhooks.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePingBackend}
-                  isLoading={isTestingBackend}
-                  leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-                  className="shrink-0 ml-4"
-                >
-                  Ping Backend
-                </Button>
-              </div>
-            </div>
-          </Card>
 
-          {/* Exchange API Keys (Simulated) */}
-          <Card
-            title="Exchange API Keys (Simulated Demo)"
-            subtitle="Secure credential management for trade routing"
-            headerBadge={<DemoBadge size="xs" />}
-          >
-            <div className="space-y-4 text-xs font-mono">
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-2 font-sans">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>
-                  Never paste actual production API private secrets into frontend code. These fields are strictly for simulated demo verification.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Exchange API Key (Public Read-Only)</label>
-                <input
-                  type="text"
-                  value={exchangeApiKey}
-                  onChange={(e) => setExchangeApiKey(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1">Exchange API Secret (Encrypted Mock)</label>
-                <input
-                  type="text"
-                  disabled
-                  value={exchangeSecretMasked}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-white/[0.05] text-xs text-slate-500 cursor-not-allowed"
-                />
-              </div>
-
-              <div className="flex justify-end pt-1">
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={() => addToast({ title: 'Keys Saved', message: 'Simulated API keys verified for demo exchange.', type: 'info' })}
-                >
-                  Verify Simulated Key
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Column: Notification Preferences & Security */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Notification Preferences */}
-          <Card
-            title="Notification Triggers"
-            subtitle="Real-time alert preferences"
-            headerBadge={<DemoBadge size="xs" />}
-          >
-            <div className="space-y-4 text-xs">
-              <label className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/[0.04] cursor-pointer">
                 <div>
-                  <div className="font-semibold text-white">Order Fill Notifications</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Alert on simulated order fills</div>
+                  <div className="flex items-center justify-between mb-1.5 text-slate-300 font-sans">
+                    <span>Webhook Alert URL:</span>
+                    <button
+                      onClick={handleCopyWebhook}
+                      className="text-[#00FF66] hover:underline flex items-center gap-1 text-[11px]"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedUrl ? 'Copied!' : 'Copy URL'}</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    value={webhookUrl}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/[0.08] text-cyan-300 select-all"
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={orderFills}
-                  onChange={(e) => setOrderFills(e.target.checked)}
-                  className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-500"
-                />
-              </label>
 
-              <label className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/[0.04] cursor-pointer">
                 <div>
-                  <div className="font-semibold text-white">Circuit Breaker Alerts</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">High-priority risk notices</div>
+                  <label className="block text-slate-300 mb-1.5 font-sans">Sample Alert JSON Payload Template</label>
+                  <pre className="p-3.5 rounded-2xl bg-black/80 border border-white/[0.06] text-[11px] text-[#00FF66] overflow-x-auto">
+{`{
+  "passphrase": "${webhookSecret}",
+  "ticker": "{{ticker}}",
+  "action": "{{strategy.order.action}}",
+  "quantity": "{{strategy.order.contracts}}",
+  "price": "{{close}}"
+}`}
+                  </pre>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={circuitBreakerAlerts}
-                  onChange={(e) => setCircuitBreakerAlerts(e.target.checked)}
-                  className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-500"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/[0.04] cursor-pointer">
-                <div>
-                  <div className="font-semibold text-white">AI Strategy Signals</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Notify on algorithm buy/sell triggers</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={emailAlerts}
-                  onChange={(e) => setEmailAlerts(e.target.checked)}
-                  className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-500"
-                />
-              </label>
-            </div>
-          </Card>
-
-          {/* Security & 2FA */}
-          <Card
-            title="Security & 2-Factor Auth"
-            subtitle="Account integrity settings"
-            headerBadge={<DemoBadge size="xs" />}
-          >
-            <div className="space-y-4 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/[0.04]">
-                <div>
-                  <div className="font-semibold text-white">Two-Factor Authentication</div>
-                  <div className="text-[11px] text-emerald-400 mt-0.5">Enabled (Authenticator App)</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={() => {
-                    setTwoFactorEnabled(!twoFactorEnabled);
-                    addToast({
-                      title: '2FA Updated',
-                      message: twoFactorEnabled ? '2FA disabled (demo mode)' : '2FA enabled with authenticator',
-                      type: 'info',
-                    });
-                  }}
-                >
-                  {twoFactorEnabled ? 'Configure' : 'Enable'}
-                </Button>
               </div>
+            </Card>
+          )}
 
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] text-[11px] text-slate-400 font-mono">
-                Active Session: Chrome 134 on Windows 11 (Demo Terminal Session)
+          {/* TAB 5: API */}
+          {activeTab === 'api' && (
+            <Card title="API Keys & Whitelisting" subtitle="Developer credentials and backend configuration" headerBadge={<DemoBadge size="xs" />}>
+              <div className="space-y-4 text-xs font-mono">
+                <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/[0.05] space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-sans">Target Backend URL:</span>
+                    <span className="text-cyan-300 font-bold">{backendStatus.url || 'http://localhost:5000/api'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-sans">IP Whitelist Status:</span>
+                    <span className="text-[#00FF66] font-bold">Dynamic Backend Supplied</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={checkBackendNow}
+                    leftIcon={<RefreshCw className="w-3.5 h-3.5 text-[#00FF66]" />}
+                  >
+                    Test API Connection
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
+
+          {/* TAB 6: PASSWORD RESET */}
+          {activeTab === 'passwordReset' && (
+            <Card title="Password Reset" subtitle="Change and update your account security phrase" headerBadge={<DemoBadge size="xs" />}>
+              <form onSubmit={handleResetPassword} className="space-y-4 text-xs font-mono">
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-sans">Current Password</label>
+                  <input
+                    type={showPasswords ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.08] text-white focus:outline-none focus:border-[#00FF66]/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-sans">New Password</label>
+                  <input
+                    type={showPasswords ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.08] text-white focus:outline-none focus:border-[#00FF66]/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-sans">Confirm New Password</label>
+                  <input
+                    type={showPasswords ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/[0.08] text-white focus:outline-none focus:border-[#00FF66]/50"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(!showPasswords)}
+                    className="text-slate-400 hover:text-white flex items-center gap-1 font-sans text-xs"
+                  >
+                    {showPasswords ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    <span>{showPasswords ? 'Hide' : 'Show'} Passwords</span>
+                  </button>
+
+                  <Button type="submit" variant="primary" size="sm">
+                    Update Password
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          {/* TAB 7: DELETE ACCOUNT */}
+          {activeTab === 'deleteAccount' && (
+            <Card
+              title="Delete Account"
+              subtitle="Permanent destructive account termination"
+              headerBadge={<span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">DANGER ZONE</span>}
+            >
+              <div className="space-y-4 text-xs">
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-200 leading-relaxed">
+                  <p className="font-semibold text-white mb-1">Warning: Destructive Action</p>
+                  Deleting your account will delete all configured AI strategies, linked broker keys, trade logs, and simulation ledgers.
+                </div>
+
+                <p className="text-slate-400 leading-relaxed">
+                  To prevent accidental loss, account deletion requires double confirmation.
+                </p>
+
+                <div className="pt-2">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setDeleteModalOpen(true)}
+                    leftIcon={<Trash2 className="w-4 h-4" />}
+                  >
+                    Initiate Account Deletion
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <Modal
+          isOpen={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          title="Confirm Account Deletion"
+          subtitle="Are you sure you want to delete your Algo boostX account?"
+          footer={
+            <>
+              <Button variant="ghost" size="sm" onClick={() => setDeleteModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={deleteConfirmText !== 'DELETE'}
+                onClick={handleDeleteAccount}
+              >
+                Confirm Delete
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4 text-xs text-slate-300 font-sans">
+            <p>
+              This is a demonstration dialog. Type <strong className="text-white font-mono">DELETE</strong> in the field below to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE to confirm"
+              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-rose-500/40 text-rose-300 font-mono text-xs focus:outline-none"
+            />
+          </div>
+        </Modal>
+      )}
+
+      {/* Broker Connect Modal */}
+      {brokerModalOpen && (
+        <BrokerConnectModal
+          isOpen={brokerModalOpen}
+          onClose={() => setBrokerModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

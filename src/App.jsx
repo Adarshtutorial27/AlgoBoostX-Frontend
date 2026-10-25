@@ -16,6 +16,10 @@ import TradeHistoryPage from './pages/TradeHistoryPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import SettingsPage from './pages/SettingsPage';
+import AiStrategiesPage from './pages/AiStrategiesPage';
+import PerformancePage from './pages/PerformancePage';
+import TradingAccountsPage from './pages/TradingAccountsPage';
+import MirrorLeadersPage from './pages/MirrorLeadersPage';
 
 export function App() {
   return (
@@ -34,6 +38,10 @@ export function App() {
               {/* Main Animated Trading Application Layout */}
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/strategies" element={<AiStrategiesPage />} />
+                <Route path="/performance" element={<PerformancePage />} />
+                <Route path="/accounts" element={<TradingAccountsPage />} />
+                <Route path="/mirror-leaders" element={<MirrorLeadersPage />} />
                 <Route path="/markets" element={<MarketsPage />} />
                 <Route path="/strategy-lab" element={<StrategyLabPage />} />
                 <Route path="/backtesting" element={<BacktestingPage />} />

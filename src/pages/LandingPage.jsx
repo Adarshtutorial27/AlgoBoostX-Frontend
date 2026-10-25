@@ -23,6 +23,7 @@ import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import { DemoBadge } from '../components/common/DemoBadge';
+import { Logo, LogoIcon } from '../components/common/Logo';
 import MiniSparkline from '../components/charts/MiniSparkline';
 import { DEMO_INSTRUMENTS } from '../data/demoData';
 
@@ -113,18 +114,8 @@ export const LandingPage = () => {
       <header className="sticky top-0 z-50 w-full bg-[#070a14]/80 backdrop-blur-xl border-b border-white/[0.07]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 p-[1.5px] shadow-lg shadow-cyan-500/25 group-hover:shadow-cyan-500/40 transition-all">
-              <div className="w-full h-full bg-[#070a12] rounded-[10px] flex items-center justify-center">
-                <Zap className="w-5 h-5 text-cyan-400 group-hover:text-emerald-400 transition-colors" />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-heading font-extrabold text-lg tracking-tight text-white">
-                Algo <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">boostX</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono tracking-wider">AI ALGORITHMIC TRADING</span>
-            </div>
+          <Link to="/" className="inline-flex items-center">
+            <Logo size="md" subtitle="AI ALGORITHMIC TRADING" />
           </Link>
 
           {/* Nav Links Desktop */}
@@ -531,10 +522,7 @@ export const LandingPage = () => {
       <footer className="mt-auto border-t border-white/[0.08] bg-[#04060c] py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950">
-              <Zap className="w-4 h-4 fill-slate-950" />
-            </div>
-            <span className="font-heading font-bold text-white text-sm">Algo boostX</span>
+            <Logo size="xs" subtitle={false} />
             <span className="text-slate-600">|</span>
             <span className="font-mono text-[11px] text-slate-400">
               Frontend Development Edition (VITE_API_BASE_URL ready)

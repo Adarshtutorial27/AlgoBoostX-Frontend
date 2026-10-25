@@ -27,17 +27,19 @@ export const Button = ({
 
   const variantClasses = {
     primary:
-      'bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:glow-cyan border border-cyan-400/30',
+      'bg-gradient-to-r from-[#00FF66] to-[#00E676] hover:from-[#33ff85] hover:to-[#00cc55] text-slate-950 font-bold shadow-lg shadow-[#00FF66]/20 hover:shadow-[#00FF66]/35 border border-[#00FF66]/40',
+    lime:
+      'bg-[#00FF66] hover:bg-[#33ff85] text-slate-950 font-bold shadow-md shadow-[#00FF66]/25 border border-[#00FF66]/50',
     secondary:
-      'bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 hover:border-slate-600 shadow-md',
+      'bg-[#0c121c] hover:bg-[#141d2c] text-slate-200 border border-white/[0.08] hover:border-[#00FF66]/40 shadow-md',
     ai:
-      'bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500 hover:opacity-95 text-slate-950 font-semibold shadow-lg shadow-indigo-500/20 border border-cyan-400/40',
+      'bg-gradient-to-r from-[#00FF66] via-cyan-400 to-indigo-500 hover:opacity-95 text-slate-950 font-bold shadow-lg shadow-[#00FF66]/20 border border-[#00FF66]/40',
     success:
-      'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 border border-emerald-500/40 font-semibold',
+      'bg-[#00FF66] hover:bg-[#33ff85] text-slate-950 shadow-lg shadow-[#00FF66]/25 border border-[#00FF66]/40 font-bold',
     danger:
       'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/25 border border-rose-500/40 font-semibold',
     outline:
-      'bg-transparent hover:bg-white/[0.04] text-slate-200 border border-slate-700 hover:border-cyan-500/60 hover:text-cyan-400',
+      'bg-transparent hover:bg-white/[0.04] text-slate-200 border border-white/[0.12] hover:border-[#00FF66]/60 hover:text-[#00FF66]',
     ghost:
       'bg-transparent hover:bg-white/[0.06] text-slate-400 hover:text-white',
   }[variant] || 'bg-slate-800 text-white';

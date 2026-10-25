@@ -6,8 +6,8 @@
  * Defaults safely to demo mode if backend is unreachable or not yet deployed.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:5000/ws';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
 
 // In-memory token storage (never store sensitive secrets in code)
 let authToken = localStorage.getItem('algoboostx_auth_token') || null;
@@ -49,20 +49,25 @@ async function request(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      error.status = response.status;
-      error.data = errorData;
-      throw error;
+      const message = errorData.detail || errorData.message || `HTTP error! status: ${response.status}`;
+      return {
+        success: false,
+        status: response.status,
+        isDisconnected: false,
+        error: message,
+        data: errorData,
+      };
     }
 
     return await response.json();
   } catch (err) {
     clearTimeout(timeoutId);
-    // Return structured error
+    // Return structured error for network failure
     return {
       success: false,
+      status: 0,
       isDisconnected: true,
-      error: err.name === 'AbortError' ? 'Backend connection timed out' : err.message,
+      error: err.name === 'AbortError' ? 'Backend connection timed out' : (err.message || 'Network connection failed'),
     };
   }
 }
@@ -76,10 +81,12 @@ export const api = {
     check: async () => {
       try {
         const res = await request('/health', { timeout: 3000 });
+        const isConn = !res.isDisconnected && (res.status === 'healthy' || res.database_connected !== undefined);
         return {
-          connected: !res.isDisconnected,
+          connected: isConn,
           url: API_BASE_URL,
-          status: res.status || (res.isDisconnected ? 'offline' : 'online'),
+          status: isConn ? 'online' : 'offline',
+          data: res,
         };
       } catch (err) {
         return { connected: false, url: API_BASE_URL, status: 'offline', error: err.message };
@@ -90,132 +97,173 @@ export const api = {
   // 2. Authentication
   auth: {
     login: async (credentials) => {
-      return await request('/auth/login', {
+      const payload = {
+        username: credentials.username || credentials.email || credentials.usernameOrEmail,
+        password: credentials.password,
+      };
+      const res = await request('/api/v1/auth/login', {
         method: 'POST',
-        body: JSON.stringify(credentials),
+        body: JSON.stringify(payload),
       });
+      if (res && res.access_token) {
+        res.token = res.access_token;
+      }
+      return res;
     },
     signup: async (userData) => {
-      return await request('/auth/signup', {
+      const payload = {
+        username: userData.username || userData.name || userData.email.split('@')[0],
+        email: userData.email,
+        password: userData.password,
+      };
+      const res = await request('/api/v1/auth/register', {
         method: 'POST',
-        body: JSON.stringify(userData),
+        body: JSON.stringify(payload),
       });
+      if (res && res.access_token) {
+        res.token = res.access_token;
+      }
+      return res;
     },
     logout: async () => {
+      await request('/api/v1/auth/logout', { method: 'POST' }).catch(() => {});
       setAuthToken(null);
       return { success: true };
     },
     me: async () => {
-      return await request('/auth/me');
+      return await request('/api/v1/auth/me');
     },
   },
 
-  // 3. Markets & Instruments
-  markets: {
-    getInstruments: async (params = {}) => {
-      const query = new URLSearchParams(params).toString();
-      return await request(`/markets/instruments${query ? `?${query}` : ''}`);
+  // 3. Broker / Exchange Accounts (Real Integrations)
+  accounts: {
+    list: async (userId = 'default_user') => {
+      return await request(`/api/v1/accounts?user_id=${encodeURIComponent(userId)}`);
     },
-    getTicker: async (symbol) => {
-      return await request(`/markets/ticker/${encodeURIComponent(symbol)}`);
+    getStatus: async (userId = 'default_user') => {
+      return await request(`/api/v1/accounts/status?user_id=${encodeURIComponent(userId)}`);
     },
-    getCandles: async (symbol, timeframe = '15m', limit = 100) => {
-      return await request(`/markets/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`);
-    },
-    getOrderBook: async (symbol) => {
-      return await request(`/markets/orderbook/${encodeURIComponent(symbol)}`);
-    },
-  },
-
-  // 4. Portfolio
-  portfolio: {
-    getSummary: async () => {
-      return await request('/portfolio/summary');
-    },
-    getPositions: async () => {
-      return await request('/portfolio/positions');
-    },
-    getAllocation: async () => {
-      return await request('/portfolio/allocation');
-    },
-    getPerformanceHistory: async (timeframe = '1M') => {
-      return await request(`/portfolio/history?timeframe=${timeframe}`);
-    },
-  },
-
-  // 5. AI Strategies
-  strategies: {
-    list: async () => {
-      return await request('/strategies');
-    },
-    getById: async (id) => {
-      return await request(`/strategies/${id}`);
-    },
-    create: async (strategyData) => {
-      return await request('/strategies', {
+    validate: async (credentials) => {
+      return await request('/api/v1/accounts/validate', {
         method: 'POST',
-        body: JSON.stringify(strategyData),
+        body: JSON.stringify({
+          api_key: credentials.apiKey || credentials.api_key,
+          api_secret: credentials.secretKey || credentials.api_secret,
+          base_url: credentials.baseUrl || 'https://cdn-ind.testnet.deltaex.org',
+        }),
       });
     },
-    update: async (id, strategyData) => {
-      return await request(`/strategies/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(strategyData),
+    connect: async (data) => {
+      return await request('/api/v1/accounts/connect', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: data.userId || 'default_user',
+          label: data.label || 'Delta Exchange Testnet',
+          environment: 'testnet',
+          base_url: data.baseUrl || 'https://cdn-ind.testnet.deltaex.org',
+          api_key: data.apiKey || data.api_key,
+          api_secret: data.secretKey || data.api_secret,
+          ip_whitelist_note: data.ipWhitelistNote || 'Connected via AlgoBoostX Platform',
+        }),
       });
     },
-    toggleStatus: async (id, status) => {
-      return await request(`/strategies/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-    },
-    delete: async (id) => {
-      return await request(`/strategies/${id}`, {
+    disconnect: async (accountId, userId = 'default_user') => {
+      return await request(`/api/v1/accounts/${accountId}?user_id=${encodeURIComponent(userId)}`, {
         method: 'DELETE',
       });
     },
+    getBalance: async (accountId, userId = 'default_user') => {
+      return await request(`/api/v1/accounts/${accountId}/balance?user_id=${encodeURIComponent(userId)}`);
+    },
+    getPositions: async (accountId, userId = 'default_user') => {
+      return await request(`/api/v1/accounts/${accountId}/positions?user_id=${encodeURIComponent(userId)}`);
+    },
+    getOrders: async (accountId, userId = 'default_user') => {
+      return await request(`/api/v1/accounts/${accountId}/orders?user_id=${encodeURIComponent(userId)}`);
+    },
   },
 
-  // 6. Backtesting Engine
-  backtesting: {
-    run: async (config) => {
-      return await request('/backtest/run', {
+  // 4. Markets & Instruments
+  markets: {
+    getInstruments: async () => {
+      return await request('/api/v1/exchange/products');
+    },
+    getTicker: async (symbol = 'BTCUSD') => {
+      return await request(`/api/market/ticker?symbol=${encodeURIComponent(symbol)}`);
+    },
+    getCandles: async (symbol = 'BTCUSD', timeframe = '5m', limit = 50) => {
+      return await request(`/api/market/candles?symbol=${encodeURIComponent(symbol)}&resolution=${timeframe}&limit=${limit}`);
+    },
+  },
+
+  // 5. Portfolio & Actual Account Stats
+  portfolio: {
+    getSummary: async () => {
+      return await request('/api/v1/portfolio/summary');
+    },
+    getPositions: async () => {
+      return await request('/api/v1/positions');
+    },
+    getTrades: async (limit = 50) => {
+      return await request(`/api/v1/trades?limit=${limit}`);
+    },
+    getPerformance: async () => {
+      return await request('/api/v1/trades/performance');
+    },
+  },
+
+  // 6. AI Strategies
+  strategies: {
+    list: async () => {
+      return await request('/api/v1/strategies');
+    },
+    getById: async (id) => {
+      return await request(`/api/v1/strategies/${id}`);
+    },
+    start: async (id) => {
+      return await request(`/api/v1/strategies/${id}/start`, { method: 'POST' });
+    },
+    stop: async (id) => {
+      return await request(`/api/v1/strategies/${id}/stop`, { method: 'POST' });
+    },
+    updateConfig: async (id, config) => {
+      return await request(`/api/v1/strategies/${id}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      });
+    },
+    backtest: async (id, config) => {
+      return await request(`/api/v1/strategies/${id}/backtest`, {
         method: 'POST',
         body: JSON.stringify(config),
       });
     },
-    getStatus: async (jobId) => {
-      return await request(`/backtest/status/${jobId}`);
-    },
-    getResults: async (jobId) => {
-      return await request(`/backtest/results/${jobId}`);
-    },
   },
 
-  // 7. Trading Orders
+  // 7. Orders & History
   orders: {
-    create: async (orderPayload) => {
-      return await request('/orders', {
-        method: 'POST',
-        body: JSON.stringify(orderPayload),
-      });
-    },
-    list: async (params = {}) => {
-      const query = new URLSearchParams(params).toString();
-      return await request(`/orders${query ? `?${query}` : ''}`);
-    },
-    cancel: async (orderId) => {
-      return await request(`/orders/${orderId}/cancel`, {
-        method: 'POST',
-      });
-    },
-    getHistory: async (params = {}) => {
-      const query = new URLSearchParams(params).toString();
-      return await request(`/orders/history${query ? `?${query}` : ''}`);
+    list: async (limit = 20) => {
+      return await request(`/api/v1/orders?limit=${limit}`);
     },
   },
 
-  // 8. WebSocket Stream Manager
+  // 8. Risk Management Controls
+  risk: {
+    getStatus: async () => {
+      return await request('/api/v1/risk/status');
+    },
+    killSwitch: async (reason = 'Operator manual kill-switch activated') => {
+      return await request('/api/v1/risk/kill-switch', {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
+    resetEmergency: async () => {
+      return await request('/api/v1/risk/reset-emergency', { method: 'POST' });
+    },
+  },
+
+  // 9. WebSocket Stream Manager
   createWebSocketConnection: (channel = 'ticker', onMessage, onError) => {
     let ws = null;
     try {
@@ -231,9 +279,7 @@ export const api = {
       ws.onerror = (err) => {
         onError && onError(err);
       };
-      ws.onclose = () => {
-        // Disconnected
-      };
+      ws.onclose = () => {};
     } catch (err) {
       onError && onError(err);
     }

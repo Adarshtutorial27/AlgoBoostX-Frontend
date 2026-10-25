@@ -1,109 +1,156 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api, setAuthToken } from '../services/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api, setAuthToken, getAuthToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('algoboostx_user');
-    return saved
-      ? JSON.parse(saved)
-      : {
-          id: 'usr_demo_882',
-          name: 'Alex Rivera',
-          email: 'quant.alex@algoboostx.ai',
-          role: 'Quantitative Trader',
-          tier: 'Pro Enterprise (AI Enabled)',
-          joined: '2026-03-15',
-          isDemo: true,
-        };
+    try {
+      const saved = localStorage.getItem('algoboostx_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return Boolean(localStorage.getItem('algoboostx_auth_token'));
+  });
+
+  const [isVerifying, setIsVerifying] = useState(true);
+
   const [backendStatus, setBackendStatus] = useState({
     checked: false,
     connected: false,
-    url: api.health ? 'http://localhost:5000/api' : '',
+    url: 'http://localhost:8000',
   });
 
-  // Verify backend connectivity on mount
+  // Verify backend connectivity and session token on mount
   useEffect(() => {
     let isMounted = true;
-    api.health.check().then((res) => {
-      if (isMounted) {
-        setBackendStatus({
-          checked: true,
-          connected: res.connected,
-          url: res.url,
-          status: res.status,
-        });
+
+    const checkSession = async () => {
+      // 1. Check health
+      try {
+        const health = await api.health.check();
+        if (isMounted) {
+          setBackendStatus({
+            checked: true,
+            connected: health.connected,
+            url: health.url,
+            status: health.status,
+          });
+        }
+      } catch (err) {
+        if (isMounted) {
+          setBackendStatus({ checked: true, connected: false, url: 'http://localhost:8000', error: err.message });
+        }
       }
-    });
+
+      // 2. Verify stored session token with /api/v1/auth/me
+      const token = getAuthToken();
+      if (!token) {
+        if (isMounted) {
+          setUser(null);
+          setIsAuthenticated(false);
+          setIsVerifying(false);
+          localStorage.removeItem('algoboostx_user');
+        }
+        return;
+      }
+
+      try {
+        const meRes = await api.auth.me();
+        if (isMounted) {
+          if (meRes && meRes.user_id && !meRes.error) {
+            setUser(meRes);
+            setIsAuthenticated(true);
+            localStorage.setItem('algoboostx_user', JSON.stringify(meRes));
+          } else if (meRes && meRes.status === 401) {
+            // Invalid or expired token — clear auth
+            setAuthToken(null);
+            setUser(null);
+            setIsAuthenticated(false);
+            localStorage.removeItem('algoboostx_user');
+          } else if (meRes && meRes.isDisconnected) {
+            // Backend connection is offline; maintain cached user for offline inspection if present
+            const cached = localStorage.getItem('algoboostx_user');
+            if (cached) {
+              try {
+                setUser(JSON.parse(cached));
+                setIsAuthenticated(true);
+              } catch {
+                setUser(null);
+                setIsAuthenticated(false);
+              }
+            }
+          } else {
+            setAuthToken(null);
+            setUser(null);
+            setIsAuthenticated(false);
+            localStorage.removeItem('algoboostx_user');
+          }
+          setIsVerifying(false);
+        }
+      } catch {
+        if (isMounted) {
+          setIsVerifying(false);
+        }
+      }
+    };
+
+    checkSession();
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const login = async (email, password) => {
-    // Attempt backend first if available
-    const backendRes = await api.auth.login({ email, password });
-    if (backendRes && backendRes.token) {
-      setAuthToken(backendRes.token);
-      setUser(backendRes.user);
+  const login = useCallback(async (usernameOrEmail, password) => {
+    const res = await api.auth.login({ username: usernameOrEmail, password });
+    if (res && (res.token || res.access_token) && res.user) {
+      const token = res.token || res.access_token;
+      setAuthToken(token);
+      const authUser = res.user;
+      setUser(authUser);
       setIsAuthenticated(true);
-      localStorage.setItem('algoboostx_user', JSON.stringify(backendRes.user));
-      return { success: true, backend: true };
+      localStorage.setItem('algoboostx_user', JSON.stringify(authUser));
+      return { success: true, user: authUser };
     }
 
-    // Frontend demo fallback
-    const demoUser = {
-      id: 'usr_demo_' + Math.floor(Math.random() * 1000),
-      name: email.split('@')[0] || 'Demo Trader',
-      email: email,
-      role: 'Algorithmic Trader',
-      tier: 'Pro Tier (Demo Mode)',
-      joined: new Date().toISOString().split('T')[0],
-      isDemo: true,
-    };
-    setUser(demoUser);
-    setIsAuthenticated(true);
-    localStorage.setItem('algoboostx_user', JSON.stringify(demoUser));
-    return { success: true, backend: false };
-  };
+    const errorMsg = res?.error || 'Invalid username or password.';
+    throw new Error(errorMsg);
+  }, []);
 
-  const signup = async (name, email, password) => {
-    const backendRes = await api.auth.signup({ name, email, password });
-    if (backendRes && backendRes.token) {
-      setAuthToken(backendRes.token);
-      setUser(backendRes.user);
+  const signup = useCallback(async (username, email, password) => {
+    const res = await api.auth.signup({ username, email, password });
+    if (res && (res.token || res.access_token) && res.user) {
+      const token = res.token || res.access_token;
+      setAuthToken(token);
+      const authUser = res.user;
+      setUser(authUser);
       setIsAuthenticated(true);
-      localStorage.setItem('algoboostx_user', JSON.stringify(backendRes.user));
-      return { success: true, backend: true };
+      localStorage.setItem('algoboostx_user', JSON.stringify(authUser));
+      return { success: true, user: authUser };
     }
 
-    const demoUser = {
-      id: 'usr_demo_' + Math.floor(Math.random() * 1000),
-      name: name || 'Demo Trader',
-      email: email,
-      role: 'Algorithmic Trader',
-      tier: 'Pro Tier (Demo Mode)',
-      joined: new Date().toISOString().split('T')[0],
-      isDemo: true,
-    };
-    setUser(demoUser);
-    setIsAuthenticated(true);
-    localStorage.setItem('algoboostx_user', JSON.stringify(demoUser));
-    return { success: true, backend: false };
-  };
+    const errorMsg = res?.error || 'Registration failed. Username or email may already be in use.';
+    throw new Error(errorMsg);
+  }, []);
 
-  const logout = () => {
-    api.auth.logout();
+  const logout = useCallback(async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      // Safe ignore
+    }
+    setAuthToken(null);
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('algoboostx_user');
-  };
+    localStorage.removeItem('algoboostx_auth_token');
+  }, []);
 
-  const checkBackendNow = async () => {
+  const checkBackendNow = useCallback(async () => {
     const res = await api.health.check();
     setBackendStatus({
       checked: true,
@@ -112,13 +159,14 @@ export const AuthProvider = ({ children }) => {
       status: res.status,
     });
     return res;
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated,
+        isVerifying,
         backendStatus,
         login,
         signup,
@@ -138,3 +186,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;

@@ -5,9 +5,13 @@ import {
   DEMO_OPEN_POSITIONS,
   DEMO_STRATEGIES,
   DEMO_TRADE_HISTORY,
+  DEMO_BROKERS,
+  DEMO_MIRROR_LEADERS,
+  DEMO_AI_STRATEGIES_CATALOG,
   IS_DEMO_DATA,
 } from '../data/demoData';
 import { useNotifications } from './NotificationContext';
+import { api } from '../services/api';
 
 const TradingContext = createContext(null);
 
@@ -21,6 +25,86 @@ export const TradingProvider = ({ children }) => {
   const [positions, setPositions] = useState(DEMO_OPEN_POSITIONS);
   const [strategies, setStrategies] = useState(DEMO_STRATEGIES);
   const [trades, setTrades] = useState(DEMO_TRADE_HISTORY);
+  const [brokers, setBrokers] = useState(DEMO_BROKERS);
+  const [mirrorLeaders, setMirrorLeaders] = useState(DEMO_MIRROR_LEADERS);
+  const [aiStrategiesCatalog, setAiStrategiesCatalog] = useState(DEMO_AI_STRATEGIES_CATALOG);
+
+  // Real backend account & portfolio states
+  const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const [activeAccountStatus, setActiveAccountStatus] = useState(null);
+  const [selectedAccountId, setSelectedAccountId] = useState('all');
+  const [realPortfolio, setRealPortfolio] = useState(null);
+  const [realPositions, setRealPositions] = useState([]);
+  const [realTrades, setRealTrades] = useState([]);
+  const [realPerformance, setRealPerformance] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+
+  // Broker connection and balance toggle
+  const [isBrokerConnected, setIsBrokerConnected] = useState(false);
+  const [connectedBrokers, setConnectedBrokers] = useState([]);
+  const [showBalance, setShowBalance] = useState(true);
+
+  // Active broker connection modal state
+  const [activeBrokerModal, setActiveBrokerModal] = useState(null);
+
+  // Fetch real data from backend
+  const refreshRealData = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const [accsRes, statusRes, summaryRes, posRes, tradesRes, perfRes] = await Promise.allSettled([
+        api.accounts.list(),
+        api.accounts.getStatus(),
+        api.portfolio.getSummary(),
+        api.portfolio.getPositions(),
+        api.portfolio.getTrades(50),
+        api.portfolio.getPerformance(),
+      ]);
+
+      let hasAccounts = false;
+      if (accsRes.status === 'fulfilled' && Array.isArray(accsRes.value)) {
+        setConnectedAccounts(accsRes.value);
+        if (accsRes.value.length > 0) {
+          hasAccounts = true;
+          setConnectedBrokers(accsRes.value.map((a) => a.account_id || 'delta'));
+        }
+      }
+
+      if (statusRes.status === 'fulfilled' && statusRes.value && !statusRes.value.isDisconnected) {
+        setActiveAccountStatus(statusRes.value);
+        if (statusRes.value.has_active_account) {
+          hasAccounts = true;
+        }
+      }
+
+      setIsBrokerConnected(hasAccounts);
+
+      if (summaryRes.status === 'fulfilled' && summaryRes.value && !summaryRes.value.isDisconnected) {
+        setRealPortfolio(summaryRes.value);
+      }
+      if (posRes.status === 'fulfilled' && Array.isArray(posRes.value)) {
+        setRealPositions(posRes.value);
+      }
+      if (tradesRes.status === 'fulfilled' && Array.isArray(tradesRes.value)) {
+        setRealTrades(tradesRes.value);
+      }
+      if (perfRes.status === 'fulfilled' && perfRes.value && !perfRes.value.isDisconnected) {
+        setRealPerformance(perfRes.value);
+      }
+
+      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (err) {
+      console.error('Failed to sync backend account data:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Initial mount sync
+  useEffect(() => {
+    refreshRealData();
+  }, [refreshRealData]);
+
   const [openOrders, setOpenOrders] = useState([
     {
       id: 'ORD-9910',
@@ -47,6 +131,99 @@ export const TradingProvider = ({ children }) => {
   ]);
 
   const [isDemoMode] = useState(true);
+
+  const toggleShowBalance = useCallback(() => {
+    setShowBalance((prev) => !prev);
+  }, []);
+
+  const connectBroker = useCallback(async (brokerId, { apiKey, secretKey, label }) => {
+    if (brokerId === 'delta') {
+      try {
+        const res = await api.accounts.connect({
+          apiKey,
+          secretKey,
+          label: label || 'Delta Exchange Testnet',
+        });
+        if (res && res.account_id) {
+          addToast({
+            title: 'Delta Exchange Testnet Linked',
+            message: `Account connected successfully (${res.api_key_masked}).`,
+            type: 'success',
+          });
+          await refreshRealData();
+          return { success: true, account: res };
+        }
+      } catch (err) {
+        addToast({
+          title: 'Account Connected in Sandbox Mode',
+          message: err.message || 'Credentials saved for sandbox simulation.',
+          type: 'info',
+        });
+      }
+    }
+
+    setConnectedBrokers((prev) => Array.from(new Set([...prev, brokerId])));
+    setIsBrokerConnected(true);
+    const broker = DEMO_BROKERS.find((b) => b.id === brokerId);
+    addToast({
+      title: `${broker?.name || brokerId} Connected`,
+      message: 'Account linked in demo sandbox mode.',
+      type: 'success',
+    });
+    return { success: true };
+  }, [addToast, refreshRealData]);
+
+  const disconnectBroker = useCallback(async (brokerId, accountId = null) => {
+    if (accountId) {
+      try {
+        await api.accounts.disconnect(accountId);
+        await refreshRealData();
+      } catch (err) {
+        console.error('Error disconnecting account:', err);
+      }
+    }
+    setConnectedBrokers((prev) => {
+      const next = prev.filter((id) => id !== brokerId);
+      if (next.length === 0 && (!connectedAccounts || connectedAccounts.length <= 1)) {
+        setIsBrokerConnected(false);
+      }
+      return next;
+    });
+    const broker = DEMO_BROKERS.find((b) => b.id === brokerId);
+    addToast({
+      title: `${broker?.name || brokerId} Disconnected`,
+      message: 'Account connection unlinked.',
+      type: 'info',
+    });
+  }, [addToast, connectedAccounts, refreshRealData]);
+
+  const togglePaperTrading = useCallback((strategyId) => {
+    setAiStrategiesCatalog((prev) =>
+      prev.map((strat) => {
+        if (strat.id === strategyId) {
+          const next = !strat.isPaperTrading;
+          addToast({
+            title: `${strat.name} Mode Changed`,
+            message: next ? 'Switched to Paper Trading (Demo)' : 'Ready for Live Backend Execution',
+            type: next ? 'info' : 'warning',
+          });
+          return { ...strat, isPaperTrading: next };
+        }
+        return strat;
+      })
+    );
+  }, [addToast]);
+
+  const updateStrategyCatalog = useCallback((strategyId, updates) => {
+    setAiStrategiesCatalog((prev) =>
+      prev.map((strat) => (strat.id === strategyId ? { ...strat, ...updates } : strat))
+    );
+    addToast({
+      title: 'Strategy Configuration Updated',
+      message: 'Parameters successfully saved in memory.',
+      type: 'success',
+    });
+  }, [addToast]);
 
   // Selected instrument accessor
   const selectedInstrument = useMemo(() => {
@@ -274,6 +451,29 @@ export const TradingProvider = ({ children }) => {
         cancelOrder,
         isDemoMode,
         isDemoData: IS_DEMO_DATA,
+        // Upgraded features
+        isBrokerConnected,
+        setIsBrokerConnected,
+        connectedBrokers,
+        showBalance,
+        toggleShowBalance,
+        connectBroker,
+        disconnectBroker,
+        activeBrokerModal,
+        setActiveBrokerModal,
+        brokers,
+        // Real Backend Integrations & Account-Aware State
+        connectedAccounts,
+        activeAccountStatus,
+        selectedAccountId,
+        setSelectedAccountId,
+        realPortfolio,
+        realPositions,
+        realTrades,
+        realPerformance,
+        isSyncing,
+        lastSyncTime,
+        refreshRealData,
       }}
     >
       {children}
