@@ -217,3 +217,5 @@ docker-compose up --build -d
 1. **Testnet Environment:** This project is configured to interact with the Delta Exchange Testnet. Testnet market conditions, order book depth, and matching mechanics may differ from production liquidity.
 2. **Educational & Research Purpose:** All backtest returns, Sharpe ratios, and win rates represent historical simulations. Past simulated performance is no guarantee of future returns.
 3. **No Financial Advice:** This software is provided solely for technical demonstration and hackathon evaluation. Do not risk capital you cannot afford to lose.
+#   a l g o - t r a d e  
+ 
